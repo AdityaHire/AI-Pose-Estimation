@@ -83,11 +83,16 @@ def release_camera():
 def generate_frames():
     global output_frame, lock, exercise_running, current_exercise, current_exercise_data
     global exercise_counter, exercise_goal, sets_completed, sets_goal
-    
+
     pose_estimator = PoseEstimator()
-    
+
+    # Initialize camera when video feed starts
+    initialize_camera()
+
     while True:
         if camera is None:
+            initialize_camera()
+            time.sleep(0.1)
             continue
             
         success, frame = camera.read()

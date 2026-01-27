@@ -10,7 +10,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Fitness Trainer</h1>
+            <h1>🏋️ Fitness Trainer</h1>
             <p>AI-powered exercise tracking and feedback</p>
         </header>
         
@@ -21,20 +21,29 @@
             
             <div class="controls">
                 <div class="exercise-selection">
-                    <h2>Select Exercise</h2>
-                    <div class="exercise-options">
-                        <div class="exercise-option" data-exercise="squat">
-                            <img src="{{ url_for('static', filename='images/squat.png') }}" alt="Squat">
-                            <h3>Squat</h3>
+                    <h2>Select Exercise <span id="exercise-count" class="exercise-count"></span></h2>
+                    
+                    <!-- Exercise Category Tabs -->
+                    <div class="category-tabs">
+                        <button class="category-tab active" data-category="all">All</button>
+                        <button class="category-tab" data-category="upper">Upper Body</button>
+                        <button class="category-tab" data-category="lower">Lower Body</button>
+                        <button class="category-tab" data-category="cardio">Cardio</button>
+                    </div>
+                    
+                    <!-- Exercise Grid - Dynamically Loaded -->
+                    <div class="exercise-options" id="exercise-grid">
+                        <div class="loading">Loading exercises...</div>
+                    </div>
+                    
+                    <!-- Exercise Info Panel -->
+                    <div id="exercise-info" class="exercise-info hidden">
+                        <div class="info-header">
+                            <span id="info-name" class="info-name"></span>
+                            <span id="info-type" class="info-type"></span>
                         </div>
-                        <div class="exercise-option" data-exercise="push_up">
-                            <img src="{{ url_for('static', filename='images/push_up.png') }}" alt="Push Up">
-                            <h3>Push Up</h3>
-                        </div>
-                        <div class="exercise-option" data-exercise="hammer_curl">
-                            <img src="{{ url_for('static', filename='images/hammer_curl.png') }}" alt="Hammer Curl">
-                            <h3>Hammer Curl</h3>
-                        </div>
+                        <p id="info-description" class="info-description"></p>
+                        <div id="info-note" class="info-note"></div>
                     </div>
                 </div>
                 
@@ -71,6 +80,14 @@
                         <div class="status-item">
                             <span class="status-label">Repetitions:</span>
                             <span id="current-reps" class="status-value">0 / 0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Form Score:</span>
+                            <span id="form-score" class="status-value form-score">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Grade:</span>
+                            <span id="form-grade" class="status-value form-grade">--</span>
                         </div>
                     </div>
                 </div>

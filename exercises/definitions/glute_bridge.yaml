@@ -1,0 +1,89 @@
+# Glute Bridge
+name: "Glute Bridge"
+type: "standard"
+description: "Hip bridge exercise for glutes and core"
+
+# Angle definitions
+angles:
+  hip_angle:
+    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
+    range: [90, 180]
+  knee_angle:
+    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
+    range: [70, 120]
+  body_line:
+    landmarks: [11, 23, 25]  # Shoulder-Hip-Knee alignment
+    range: [160, 180]
+
+# State machine
+states:
+  - name: "DOWN"
+    condition:
+      angle: "hip_angle"
+      operator: "<"
+      value: 120
+    next_state: "LIFTING"
+    feedback: "Hips down, drive through heels"
+    
+  - name: "LIFTING"
+    condition:
+      angle: "hip_angle"
+      operator: ">"
+      value: 165
+    next_state: "UP"
+    feedback: "Squeeze glutes at the top"
+    
+  - name: "UP"
+    condition:
+      angle: "hip_angle"
+      operator: "<"
+      value: 120
+    next_state: "DOWN"
+    feedback: "Lower with control"
+
+# Counter
+counter:
+  increment_on: "UP"
+  decrement_on: null
+
+# Form feedback
+feedback:
+  - name: "incomplete_extension"
+    description: "Not fully extending hips"
+    angle: "hip_angle"
+    condition:
+      operator: "<"
+      value: 160
+    state_trigger: "UP"
+    message: "Extend hips fully - squeeze glutes"
+    priority: 1
+    
+  - name: "knees_caving"
+    description: "Knees falling inward"
+    condition:
+      type: "knee_alignment"
+      threshold: 0.05
+    message: "Keep knees in line with toes"
+    priority: 2
+    
+  - name: "overextension"
+    description: "Hyperextending the back"
+    angle: "hip_angle"
+    condition:
+      operator: ">"
+      value: 180
+    message: "Don't overextend - keep core tight"
+    priority: 1
+
+# Tempo
+tempo:
+  up_seconds: 1.5
+  down_seconds: 2.0
+  hold_seconds: 2.0
+
+# Visualization
+visualization:
+  primary_angle: "hip_angle"
+  show_angles: ["hip_angle", "knee_angle"]
+  highlight_landmarks: [23, 24, 25, 26]
+  color_scheme: "pink"

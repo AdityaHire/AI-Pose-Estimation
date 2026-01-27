@@ -1,0 +1,98 @@
+# High Knees (Cardio)
+name: "High Knees"
+type: "bilateral"
+description: "Running in place with high knee lifts for cardio"
+
+# Angle definitions
+angles:
+  left_hip:
+    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
+    range: [60, 180]
+  right_hip:
+    landmarks: [12, 24, 26]  # RIGHT_SHOULDER, RIGHT_HIP, RIGHT_KNEE
+    range: [60, 180]
+  left_knee:
+    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
+    range: [40, 180]
+  right_knee:
+    landmarks: [24, 26, 28]  # RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE
+    range: [40, 180]
+
+# State machine
+states:
+  - name: "DOWN"
+    condition:
+      angle: "left_hip"
+      operator: ">"
+      value: 150
+    next_state: "LIFTING"
+    feedback: "Drive knee up!"
+    
+  - name: "LIFTING"
+    condition:
+      angle: "left_hip"
+      operator: "<"
+      value: 100
+    next_state: "UP"
+    feedback: "Knee at hip height, good!"
+    
+  - name: "UP"
+    condition:
+      angle: "left_hip"
+      operator: ">"
+      value: 150
+    next_state: "DOWN"
+    feedback: "Switch legs!"
+
+# Counter
+counter:
+  increment_on: "UP"
+  decrement_on: null
+
+# Bilateral settings
+bilateral:
+  sides: ["left", "right"]
+  angle_prefix: ["left_", "right_"]
+  count_per_side: true
+
+# Form feedback
+feedback:
+  - name: "knee_too_low"
+    description: "Knee not reaching hip height"
+    angle: "left_hip"
+    condition:
+      operator: ">"
+      value: 110
+    state_trigger: "UP"
+    message: "Drive knee higher - to hip level"
+    priority: 1
+    
+  - name: "leaning_back"
+    description: "Torso leaning backward"
+    condition:
+      type: "torso_angle"
+      threshold: 15
+    message: "Stay upright, slight forward lean"
+    priority: 2
+    
+  - name: "slow_pace"
+    description: "Pace too slow"
+    condition:
+      type: "tempo_check"
+      expected_rate: 60  # per minute
+      threshold: 0.5
+    message: "Pick up the pace!"
+    priority: 2
+
+# Tempo (fast for cardio)
+tempo:
+  up_seconds: 0.25
+  down_seconds: 0.25
+  hold_seconds: 0
+
+# Visualization
+visualization:
+  primary_angle: "left_hip"
+  show_angles: ["left_hip", "right_hip"]
+  highlight_landmarks: [23, 24, 25, 26]
+  color_scheme: "red"

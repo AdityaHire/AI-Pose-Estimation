@@ -15,11 +15,9 @@ logger = logging.getLogger(__name__)
 # Import attempt with error handling
 try:
     from pose_estimation.estimation import PoseEstimator
-    from exercises.squat import Squat
-    from exercises.hammer_curl import HammerCurl
-    from exercises.push_up import PushUp
-    from feedback.information import get_exercise_info
-    from feedback.layout import layout_indicators
+    # NEW: Import Exercise Engine
+    from exercises.engine import ExerciseEngine
+    from exercises.loader import get_available_exercises, get_exercise_info
     from utils.draw_text_with_background import draw_text_with_background
     logger.info("Successfully imported pose estimation modules")
 except ImportError as e:
@@ -60,18 +58,26 @@ camera = None
 output_frame = None
 lock = threading.Lock()
 exercise_running = False
-current_exercise = None
-current_exercise_data = None
-exercise_counter = 0
+exercise_engine = ExerciseEngine()  # NEW: Global exercise engine
+current_exercise_type = None
 exercise_goal = 0
 sets_completed = 0
 sets_goal = 0
 workout_start_time = None
 
+# FPS tracking
+fps_counter = 0
+fps_start_time = time.time()
+current_fps = 0
+
 def initialize_camera():
     global camera
     if camera is None:
         camera = cv2.VideoCapture(0)
+        # Optimize camera settings
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        camera.set(cv2.CAP_PROP_FPS, 30)
     return camera
 
 def release_camera():
@@ -81,8 +87,9 @@ def release_camera():
         camera = None
 
 def generate_frames():
-    global output_frame, lock, exercise_running, current_exercise, current_exercise_data
-    global exercise_counter, exercise_goal, sets_completed, sets_goal
+    global output_frame, lock, exercise_running, exercise_engine
+    global exercise_goal, sets_completed, sets_goal
+    global fps_counter, fps_start_time, current_fps
 
     pose_estimator = PoseEstimator()
 
@@ -99,70 +106,61 @@ def generate_frames():
         if not success:
             continue
         
+        # FPS calculation
+        fps_counter += 1
+        elapsed = time.time() - fps_start_time
+        if elapsed >= 1.0:
+            current_fps = fps_counter / elapsed
+            fps_counter = 0
+            fps_start_time = time.time()
+        
         # Only process frames if an exercise is running
-        if exercise_running and current_exercise:
+        if exercise_running and exercise_engine.exercise:
             # Process with pose estimation
-            results = pose_estimator.estimate_pose(frame, current_exercise_data['type'])
+            results = pose_estimator.estimate_pose(frame, exercise_engine.exercise_name)
             
             if results.pose_landmarks:
-                # Track exercise based on type
-                if current_exercise_data['type'] == "squat":
-                    counter, angle, stage = current_exercise.track_squat(results.pose_landmarks.landmark, frame)
-                    layout_indicators(frame, current_exercise_data['type'], (counter, angle, stage))
-                    exercise_counter = counter
-                    
-                elif current_exercise_data['type'] == "push_up":
-                    counter, angle, stage = current_exercise.track_push_up(results.pose_landmarks.landmark, frame)
-                    layout_indicators(frame, current_exercise_data['type'], (counter, angle, stage))
-                    exercise_counter = counter
-                    
-                elif current_exercise_data['type'] == "hammer_curl":
-                    (counter_right, angle_right, counter_left, angle_left,
-                     warning_message_right, warning_message_left, progress_right, 
-                     progress_left, stage_right, stage_left) = current_exercise.track_hammer_curl(
-                        results.pose_landmarks.landmark, frame)
-                    layout_indicators(frame, current_exercise_data['type'], 
-                                     (counter_right, angle_right, counter_left, angle_left,
-                                      warning_message_right, warning_message_left, 
-                                      progress_right, progress_left, stage_right, stage_left))
-                    exercise_counter = max(counter_right, counter_left)
+                # NEW: Use Exercise Engine to process frame
+                result = exercise_engine.process_frame(frame, results.pose_landmarks.landmark)
                 
-                # Display exercise information
-                exercise_info = get_exercise_info(current_exercise_data['type'])
-                draw_text_with_background(frame, f"Exercise: {exercise_info.get('name', 'N/A')}", (40, 50),
-                                         cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Reps Goal: {exercise_goal}", (40, 80),
-                                         cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Sets Goal: {sets_goal}", (40, 110),
-                                         cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Current Set: {sets_completed + 1}", (40, 140),
-                                         cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                
-                # Check if rep goal is reached for current set
-                if exercise_counter >= exercise_goal:
-                    sets_completed += 1
-                    exercise_counter = 0
-                    # Reset exercise counter in the appropriate exercise object
-                    if current_exercise_data['type'] == "squat" or current_exercise_data['type'] == "push_up":
-                        current_exercise.counter = 0
-                    elif current_exercise_data['type'] == "hammer_curl":
-                        current_exercise.counter_right = 0
-                        current_exercise.counter_left = 0
+                if result["success"]:
+                    # Draw status overlay
+                    exercise_engine.draw_status_overlay(frame, exercise_goal, sets_goal, sets_completed)
                     
-                    # Check if all sets are completed
-                    if sets_completed >= sets_goal:
-                        exercise_running = False
-                        draw_text_with_background(frame, "WORKOUT COMPLETE!", (frame.shape[1]//2 - 150, frame.shape[0]//2),
-                                                cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), (0, 200, 0), 2)
-                    else:
-                        draw_text_with_background(frame, f"SET {sets_completed} COMPLETE! Rest for 30 sec", 
-                                                (frame.shape[1]//2 - 200, frame.shape[0]//2),
-                                                cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), (0, 0, 200), 2)
-                        # We could add rest timer functionality here
+                    # Draw Form Score
+                    exercise_engine.draw_form_score(frame)
+                    
+                    # Check if rep goal is reached for current set
+                    current_counter = exercise_engine.get_counter()
+                    if current_counter >= exercise_goal:
+                        sets_completed += 1
+                        exercise_engine.reset()
+                        
+                        # Check if all sets are completed
+                        if sets_completed >= sets_goal:
+                            exercise_running = False
+                            # Final form score display
+                            avg_score = exercise_engine.exercise.avg_form_score if exercise_engine.exercise else 0
+                            draw_text_with_background(frame, f"WORKOUT COMPLETE! Avg Score: {avg_score}", 
+                                                    (frame.shape[1]//2 - 200, frame.shape[0]//2),
+                                                    cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), (0, 200, 0), 2)
+                        else:
+                            draw_text_with_background(frame, f"SET {sets_completed} COMPLETE! Rest for 30 sec", 
+                                                    (frame.shape[1]//2 - 200, frame.shape[0]//2),
+                                                    cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), (0, 0, 200), 2)
         else:
             # Display welcome message if no exercise is running
-            cv2.putText(frame, "Select an exercise to begin", (frame.shape[1]//2 - 150, frame.shape[0]//2),
+            cv2.putText(frame, "Select an exercise to begin", (frame.shape[1]//2 - 180, frame.shape[0]//2),
                        cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
+            
+            # Show available exercises
+            exercises = get_available_exercises()
+            cv2.putText(frame, f"Available: {len(exercises)} exercises", (frame.shape[1]//2 - 120, frame.shape[0]//2 + 40),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+        
+        # Display FPS
+        cv2.putText(frame, f"FPS: {current_fps:.1f}", (frame.shape[1] - 100, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
                 
         # Encode the frame in JPEG format
         with lock:
@@ -229,8 +227,8 @@ def video_feed():
 @app.route('/start_exercise', methods=['POST'])
 def start_exercise():
     """Start a new exercise based on user selection"""
-    global exercise_running, current_exercise, current_exercise_data
-    global exercise_counter, exercise_goal, sets_completed, sets_goal
+    global exercise_running, exercise_engine, current_exercise_type
+    global exercise_goal, sets_completed, sets_goal
     global workout_start_time
     
     data = request.json
@@ -242,49 +240,54 @@ def start_exercise():
     initialize_camera()
     
     # Reset counters
-    exercise_counter = 0
     sets_completed = 0
     workout_start_time = time.time()
     
-    # Initialize the appropriate exercise class
-    if exercise_type == "squat":
-        current_exercise = Squat()
-    elif exercise_type == "push_up":
-        current_exercise = PushUp()
-    elif exercise_type == "hammer_curl":
-        current_exercise = HammerCurl()
-    else:
-        return jsonify({'success': False, 'error': 'Invalid exercise type'})
+    # NEW: Use Exercise Engine to load exercise from YAML
+    available = get_available_exercises()
+    if exercise_type not in available:
+        return jsonify({'success': False, 'error': f'Invalid exercise type. Available: {available}'})
     
-    # Store exercise data
-    current_exercise_data = {
-        'type': exercise_type,
-        'sets': sets_goal,
-        'reps': exercise_goal
-    }
+    # Load exercise
+    if not exercise_engine.set_exercise(exercise_type):
+        return jsonify({'success': False, 'error': f'Failed to load exercise: {exercise_type}'})
+    
+    current_exercise_type = exercise_type
     
     # Start the exercise
     exercise_running = True
     
-    return jsonify({'success': True})
+    logger.info(f"Started exercise: {exercise_type}, goal: {exercise_goal} reps x {sets_goal} sets")
+    
+    return jsonify({
+        'success': True,
+        'exercise': exercise_type,
+        'info': get_exercise_info(exercise_type)
+    })
 
 @app.route('/stop_exercise', methods=['POST'])
 def stop_exercise():
     """Stop the current exercise and log the workout"""
-    global exercise_running, current_exercise_data, workout_start_time
-    global exercise_counter, exercise_goal, sets_completed, sets_goal
+    global exercise_running, exercise_engine, current_exercise_type
+    global workout_start_time, sets_completed, exercise_goal, sets_goal
     
-    if exercise_running and current_exercise_data:
+    if exercise_running and exercise_engine.exercise:
         # Calculate duration
         duration = int(time.time() - workout_start_time) if workout_start_time else 0
         
+        # Get final form score
+        avg_form_score = exercise_engine.exercise.avg_form_score
+        
         # Log the workout
+        current_counter = exercise_engine.get_counter()
         workout_logger.log_workout(
-            exercise_type=current_exercise_data['type'],
-            sets=sets_completed + (1 if exercise_counter > 0 else 0),  # Include partial set
+            exercise_type=current_exercise_type,
+            sets=sets_completed + (1 if current_counter > 0 else 0),
             reps=exercise_goal,
             duration_seconds=duration
         )
+        
+        logger.info(f"Workout stopped. Avg form score: {avg_form_score}")
     
     exercise_running = False
     return jsonify({'success': True})
@@ -292,14 +295,34 @@ def stop_exercise():
 @app.route('/get_status', methods=['GET'])
 def get_status():
     """Return current exercise status"""
-    global exercise_counter, sets_completed, exercise_goal, sets_goal, exercise_running
+    global exercise_engine, sets_completed, exercise_goal, sets_goal, exercise_running
     
-    return jsonify({
+    status = {
         'exercise_running': exercise_running,
-        'current_reps': exercise_counter,
+        'current_reps': exercise_engine.get_counter() if exercise_engine.exercise else 0,
         'current_set': sets_completed + 1 if exercise_running else 0,
         'total_sets': sets_goal,
         'rep_goal': exercise_goal
+    }
+    
+    # Add form score if exercise is running
+    if exercise_running and exercise_engine.exercise:
+        ex_status = exercise_engine.get_status()
+        status['form_score'] = ex_status.get('form_score', 100)
+        status['avg_form_score'] = ex_status.get('avg_form_score', 100)
+        status['form_grade'] = ex_status.get('form_grade', 'A')
+    
+    return jsonify(status)
+
+@app.route('/exercises', methods=['GET'])
+def list_exercises():
+    """Return list of all available exercises"""
+    exercises = get_available_exercises()
+    exercises_info = {ex: get_exercise_info(ex) for ex in exercises}
+    return jsonify({
+        'exercises': exercises,
+        'info': exercises_info,
+        'count': len(exercises)
     })
 
 @app.route('/profile')
@@ -309,9 +332,20 @@ def profile():
 
 if __name__ == '__main__':
     try:
+        # List available exercises on startup
+        exercises = get_available_exercises()
+        logger.info(f"Available exercises: {exercises}")
+        
         logger.info("Starting the Flask application on http://127.0.0.1:5000")
-        print("Starting Fitness Trainer app, please wait...")
-        print("Open http://127.0.0.1:5000 in your web browser when the server starts")
+        print("=" * 50)
+        print("🏋️ FITNESS TRAINER WITH POSE ESTIMATION")
+        print("=" * 50)
+        print(f"📋 Available exercises: {len(exercises)}")
+        for ex in exercises:
+            print(f"   • {ex}")
+        print("-" * 50)
+        print("🌐 Open http://127.0.0.1:5000 in your browser")
+        print("=" * 50)
         app.run(debug=True)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")

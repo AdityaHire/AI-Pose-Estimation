@@ -1,0 +1,90 @@
+# Lying Leg Raise (Abs)
+name: "Leg Raise"
+type: "standard"
+description: "Lying leg raises for lower ab strength"
+
+# Angle definitions
+angles:
+  hip_angle:
+    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
+    range: [70, 180]
+  knee_angle:
+    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
+    range: [160, 180]
+  torso_angle:
+    landmarks: [23, 11, 13]  # LEFT_HIP, LEFT_SHOULDER, LEFT_ELBOW
+    range: [160, 180]
+
+# State machine
+states:
+  - name: "DOWN"
+    condition:
+      angle: "hip_angle"
+      operator: ">"
+      value: 160
+    next_state: "RAISING"
+    feedback: "Legs down, prepare to lift"
+    
+  - name: "RAISING"
+    condition:
+      angle: "hip_angle"
+      operator: "<"
+      value: 100
+    next_state: "UP"
+    feedback: "Control the lift, engage core"
+    
+  - name: "UP"
+    condition:
+      angle: "hip_angle"
+      operator: ">"
+      value: 160
+    next_state: "DOWN"
+    feedback: "Lower slowly, don't drop"
+
+# Counter
+counter:
+  increment_on: "UP"
+  decrement_on: null
+
+# Form feedback
+feedback:
+  - name: "bent_knees"
+    description: "Knees bending during raise"
+    angle: "knee_angle"
+    condition:
+      operator: "<"
+      value: 165
+    message: "Keep legs straight"
+    priority: 1
+    
+  - name: "back_arching"
+    description: "Lower back arching off floor"
+    condition:
+      type: "landmark_position"
+      landmark: 23  # Hip
+      reference: "floor"
+      threshold: 0.1
+    message: "Press lower back into floor"
+    priority: 1
+    
+  - name: "momentum"
+    description: "Using momentum instead of control"
+    condition:
+      type: "velocity_check"
+      landmarks: [27, 28]
+      threshold: 0.3
+    message: "Slow down - use control"
+    priority: 2
+
+# Tempo
+tempo:
+  up_seconds: 2.0
+  down_seconds: 3.0
+  hold_seconds: 0.5
+
+# Visualization
+visualization:
+  primary_angle: "hip_angle"
+  show_angles: ["hip_angle", "knee_angle"]
+  highlight_landmarks: [23, 24, 25, 26, 27, 28]
+  color_scheme: "purple"

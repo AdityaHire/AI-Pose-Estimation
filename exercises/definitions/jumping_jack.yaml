@@ -1,0 +1,80 @@
+# Jumping Jack
+name: "Jumping Jack"
+type: "standard"
+description: "Classic cardio exercise - arms and legs move together"
+
+# Angle definitions
+angles:
+  arm_angle:
+    landmarks: [13, 11, 23]  # LEFT_ELBOW, LEFT_SHOULDER, LEFT_HIP
+    range: [10, 180]
+  leg_spread:
+    landmarks: [23, 0, 24]  # LEFT_HIP, NOSE (midpoint ref), RIGHT_HIP
+    range: [0, 60]
+  shoulder_angle:
+    landmarks: [15, 11, 12]  # LEFT_WRIST, LEFT_SHOULDER, RIGHT_SHOULDER  
+    range: [30, 180]
+
+# State machine
+states:
+  - name: "CLOSED"
+    condition:
+      angle: "arm_angle"
+      operator: "<"
+      value: 30
+    next_state: "OPENING"
+    feedback: "Jump and spread!"
+    
+  - name: "OPENING"
+    condition:
+      angle: "arm_angle"
+      operator: ">"
+      value: 160
+    next_state: "OPEN"
+    feedback: "Arms overhead, good!"
+    
+  - name: "OPEN"
+    condition:
+      angle: "arm_angle"
+      operator: "<"
+      value: 30
+    next_state: "CLOSED"
+    feedback: "Close and repeat!"
+
+# Counter
+counter:
+  increment_on: "OPEN"
+  decrement_on: null
+
+# Form feedback
+feedback:
+  - name: "arms_not_full"
+    description: "Arms not reaching full extension"
+    angle: "arm_angle"
+    condition:
+      operator: "<"
+      value: 150
+    state_trigger: "OPEN"
+    message: "Reach arms fully overhead"
+    priority: 1
+    
+  - name: "legs_not_spread"
+    description: "Legs not spreading enough"
+    condition:
+      type: "hip_width"
+      threshold: 0.3
+    message: "Spread legs wider"
+    priority: 2
+
+# Tempo (faster for cardio)
+tempo:
+  up_seconds: 0.4
+  down_seconds: 0.4
+  hold_seconds: 0
+
+# Visualization
+visualization:
+  primary_angle: "arm_angle"
+  show_angles: ["arm_angle"]
+  highlight_landmarks: [11, 12, 15, 16, 23, 24]
+  color_scheme: "yellow"

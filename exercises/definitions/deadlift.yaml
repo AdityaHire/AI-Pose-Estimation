@@ -1,0 +1,90 @@
+# Romanian Deadlift (Bodyweight or Light Weight)
+name: "Deadlift"
+type: "standard"
+description: "Hip hinge movement for posterior chain"
+
+# Angle definitions
+angles:
+  hip_hinge:
+    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
+    range: [60, 180]
+  knee_angle:
+    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
+    range: [150, 180]  # Slight bend only
+  back_angle:
+    landmarks: [0, 11, 23]  # NOSE, LEFT_SHOULDER, LEFT_HIP
+    range: [160, 180]  # Back straight
+
+# State machine
+states:
+  - name: "UP"
+    condition:
+      angle: "hip_hinge"
+      operator: ">"
+      value: 165
+    next_state: "HINGING"
+    feedback: "Hinge at hips, push back"
+    
+  - name: "HINGING"
+    condition:
+      angle: "hip_hinge"
+      operator: "<"
+      value: 100
+    next_state: "DOWN"
+    feedback: "Feel hamstring stretch"
+    
+  - name: "DOWN"
+    condition:
+      angle: "hip_hinge"
+      operator: ">"
+      value: 165
+    next_state: "UP"
+    feedback: "Drive hips forward, squeeze glutes"
+
+# Counter
+counter:
+  increment_on: "UP"
+  decrement_on: null
+
+# Form feedback
+feedback:
+  - name: "rounded_back"
+    description: "Back rounding during movement"
+    angle: "back_angle"
+    condition:
+      operator: "<"
+      value: 165
+    message: "Keep back flat - chest up"
+    priority: 1
+    
+  - name: "knees_bending"
+    description: "Bending knees too much"
+    angle: "knee_angle"
+    condition:
+      operator: "<"
+      value: 155
+    message: "Keep legs straighter - hinge at hips"
+    priority: 1
+    
+  - name: "not_deep_enough"
+    description: "Not hinging deep enough"
+    angle: "hip_hinge"
+    condition:
+      operator: ">"
+      value: 110
+    state_trigger: "DOWN"
+    message: "Hinge deeper - feel hamstring stretch"
+    priority: 2
+
+# Tempo
+tempo:
+  up_seconds: 1.5
+  down_seconds: 3.0
+  hold_seconds: 0.5
+
+# Visualization
+visualization:
+  primary_angle: "hip_hinge"
+  show_angles: ["hip_hinge", "knee_angle", "back_angle"]
+  highlight_landmarks: [11, 23, 24, 25, 26]
+  color_scheme: "brown"

@@ -1,0 +1,80 @@
+# Calf Raise (Standing)
+name: "Calf Raise"
+type: "standard"
+description: "Standing calf raises for lower leg strength"
+
+# Angle definitions  
+angles:
+  left_ankle:
+    landmarks: [25, 27, 31]  # LEFT_KNEE, LEFT_ANKLE, LEFT_FOOT_INDEX
+    range: [70, 120]
+  right_ankle:
+    landmarks: [26, 28, 32]  # RIGHT_KNEE, RIGHT_ANKLE, RIGHT_FOOT_INDEX
+    range: [70, 120]
+  left_knee:
+    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
+    range: [160, 180]
+
+# State machine
+states:
+  - name: "DOWN"
+    condition:
+      angle: "left_ankle"
+      operator: ">"
+      value: 110
+    next_state: "RAISING"
+    feedback: "Heels down, prepare to rise"
+    
+  - name: "RAISING"
+    condition:
+      angle: "left_ankle"
+      operator: "<"
+      value: 85
+    next_state: "UP"
+    feedback: "Squeeze calves at the top"
+    
+  - name: "UP"
+    condition:
+      angle: "left_ankle"
+      operator: ">"
+      value: 110
+    next_state: "DOWN"
+    feedback: "Lower heels slowly"
+
+# Counter
+counter:
+  increment_on: "UP"
+  decrement_on: null
+
+# Form feedback
+feedback:
+  - name: "bent_knees"
+    description: "Knees bending during exercise"
+    angle: "left_knee"
+    condition:
+      operator: "<"
+      value: 165
+    message: "Keep legs straight"
+    priority: 1
+    
+  - name: "uneven_rise"
+    description: "Rising unevenly"
+    condition:
+      type: "angle_symmetry"
+      angles: ["left_ankle", "right_ankle"]
+      threshold: 15
+    message: "Rise evenly on both feet"
+    priority: 2
+
+# Tempo
+tempo:
+  up_seconds: 1.5
+  down_seconds: 2.0
+  hold_seconds: 1.0
+
+# Visualization
+visualization:
+  primary_angle: "left_ankle"
+  show_angles: ["left_ankle", "right_ankle"]
+  highlight_landmarks: [27, 28, 31, 32]
+  color_scheme: "cyan"

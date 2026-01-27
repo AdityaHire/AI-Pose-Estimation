@@ -1,0 +1,84 @@
+# Bicep Curl (Dumbbell) - Single arm focus
+name: "Bicep Curl"
+type: "bilateral"  # Alternating arms
+description: "Classic bicep curl with controlled tempo"
+
+# Angle definitions
+angles:
+  left_elbow:
+    landmarks: [11, 13, 15]  # LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST
+    range: [30, 160]
+  right_elbow:
+    landmarks: [12, 14, 16]  # RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST
+    range: [30, 160]
+
+# State machine for bicep curl
+states:
+  - name: "DOWN"
+    condition:
+      angle: "left_elbow"
+      operator: ">"
+      value: 150
+    next_state: "CURLING"
+    feedback: "Arms extended, ready to curl"
+    
+  - name: "CURLING"
+    condition:
+      angle: "left_elbow"
+      operator: "<"
+      value: 50
+    next_state: "UP"
+    feedback: "Squeeze at the top"
+    
+  - name: "UP"
+    condition:
+      angle: "left_elbow"
+      operator: ">"
+      value: 150
+    next_state: "DOWN"
+    feedback: "Lower slowly"
+
+# Counter configuration
+counter:
+  increment_on: "UP"
+  decrement_on: null
+  
+# Bilateral settings
+bilateral:
+  sides: ["left", "right"]
+  angle_prefix: ["left_", "right_"]
+  count_per_side: true
+
+# Form feedback rules
+feedback:
+  - name: "elbow_drift"
+    description: "Elbow drifting forward"
+    angle: "left_elbow"
+    condition:
+      type: "landmark_distance"
+      landmarks: [11, 13]  # Shoulder to elbow
+      threshold: 0.15
+    message: "Keep elbows tucked at your sides"
+    priority: 1
+    
+  - name: "swinging"
+    description: "Body swinging for momentum"
+    condition:
+      type: "landmark_stability"
+      landmarks: [11, 12]  # Shoulders
+      threshold: 0.05
+    message: "Don't swing - use controlled motion"
+    priority: 2
+
+# Tempo guidance
+tempo:
+  up_seconds: 1.0
+  down_seconds: 2.0
+  hold_seconds: 0.5
+
+# Visual display
+visualization:
+  primary_angle: "left_elbow"
+  show_angles: ["left_elbow", "right_elbow"]
+  highlight_landmarks: [13, 14, 15, 16]  # Elbows and wrists
+  color_scheme: "blue"

@@ -8,9 +8,6 @@ from feedback.information import get_exercise_info
 from utils.draw_text_with_background import draw_text_with_background
 
 def main():
-    video_path = r"C:\Users\yakupzengin\Fitness-Trainer\data\squat.mp4"
-    video_path = r"C:\Users\yakupzengin\Fitness-Trainer\data\push_up.mp4"
-    video_path = r"C:\Users\yakupzengin\Fitness-Trainer\data\dumbel-workout.mp4"
 
     exercise_type = "hammer_curl"  # Egzersiz türünü belirleyin ("hammer_curl", "squat", "push_up")
 

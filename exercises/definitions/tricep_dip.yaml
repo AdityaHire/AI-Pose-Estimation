@@ -1,81 +1,58 @@
-# Tricep Dip (Chair/Bench)
-name: "Tricep Dip"
-type: "standard"
-description: "Tricep dips using a chair or bench for arm strength"
+# Tricep Dip Exercise Definition
+name: tricep_dip
+display_name: "Tricep Dip"
+type: repetition
 
-# Angle definitions
+target_muscles:
+  - Triceps
+  - Shoulders
+  - Chest
+equipment: "Chair or Bench"
+difficulty: intermediate
+default_reps: 10
+default_sets: 3
+description: "Chair or bench dips for tricep strength"
+
 angles:
-  left_elbow:
-    landmarks: [11, 13, 15]  # LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST
-    range: [45, 170]
-  right_elbow:
-    landmarks: [12, 14, 16]  # RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST
-    range: [45, 170]
-  left_shoulder:
-    landmarks: [13, 11, 23]  # LEFT_ELBOW, LEFT_SHOULDER, LEFT_HIP
-    range: [20, 90]
+  primary:
+    points: [left_shoulder, left_elbow, left_wrist]
+    description: "Dirsek açısı"
 
-# State machine
+state_order:
+  - up
+  - lower
+  - down
+
 states:
-  - name: "UP"
-    condition:
-      angle: "left_elbow"
-      operator: ">"
-      value: 160
-    next_state: "LOWERING"
-    feedback: "Arms extended, lower down slowly"
-    
-  - name: "LOWERING"
-    condition:
-      angle: "left_elbow"
-      operator: "<"
-      value: 90
-    next_state: "DOWN"
-    feedback: "Good depth, push back up"
-    
-  - name: "DOWN"
-    condition:
-      angle: "left_elbow"
-      operator: ">"
-      value: 160
-    next_state: "UP"
-    feedback: "Arms locked out, great rep!"
+  up:
+    condition: "angle > 160"
+    description: "Kollar düz"
+  
+  lower:
+    condition: "angle > 90 and angle <= 160"
+    description: "İniş"
+  
+  down:
+    condition: "angle <= 90"
+    description: "Alt pozisyon"
 
-# Counter
 counter:
-  increment_on: "UP"
-  decrement_on: null
+  trigger_state: up
+  from_state: down
 
-# Form feedback
+min_rep_duration: 0.8
+
 feedback:
-  - name: "too_shallow"
-    description: "Not going deep enough"
-    angle: "left_elbow"
-    condition:
-      operator: ">"
-      value: 100
-    state_trigger: "DOWN"
-    message: "Go deeper - bend to 90 degrees"
-    priority: 1
-    
-  - name: "shoulders_forward"
-    description: "Shoulders rolling forward"
-    angle: "left_shoulder"
-    condition:
-      operator: "<"
-      value: 30
-    message: "Keep chest up, shoulders back"
-    priority: 2
+  shallow:
+    condition: "angle > 100"
+    message: "Go deeper - 90 degree bend"
+    severity: info
 
-# Tempo
-tempo:
-  up_seconds: 1.0
-  down_seconds: 2.0
-  hold_seconds: 0.5
-
-# Visualization
 visualization:
-  primary_angle: "left_elbow"
-  show_angles: ["left_elbow", "right_elbow"]
-  highlight_landmarks: [11, 12, 13, 14, 15, 16]
-  color_scheme: "orange"
+  lines:
+    - points: [left_shoulder, left_elbow]
+      color: [255, 165, 0]
+      thickness: 4
+    - points: [left_elbow, left_wrist]
+      color: [255, 165, 0]
+      thickness: 4

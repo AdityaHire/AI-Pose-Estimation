@@ -1,89 +1,58 @@
-# Glute Bridge
-name: "Glute Bridge"
-type: "standard"
-description: "Hip bridge exercise for glutes and core"
+# Glute Bridge Exercise Definition
+name: glute_bridge
+display_name: "Glute Bridge"
+type: repetition
 
-# Angle definitions
+target_muscles:
+  - Glutes
+  - Hamstrings
+  - Core
+equipment: "Bodyweight"
+difficulty: beginner
+default_reps: 12
+default_sets: 3
+description: "Hip bridge for glute activation"
+
 angles:
-  hip_angle:
-    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
-    range: [90, 180]
-  knee_angle:
-    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
-    range: [70, 120]
-  body_line:
-    landmarks: [11, 23, 25]  # Shoulder-Hip-Knee alignment
-    range: [160, 180]
+  primary:
+    points: [left_shoulder, left_hip, left_knee]
+    description: "Kalça açısı"
 
-# State machine
+state_order:
+  - up
+  - lift
+  - down
+
 states:
-  - name: "DOWN"
-    condition:
-      angle: "hip_angle"
-      operator: "<"
-      value: 120
-    next_state: "LIFTING"
-    feedback: "Hips down, drive through heels"
-    
-  - name: "LIFTING"
-    condition:
-      angle: "hip_angle"
-      operator: ">"
-      value: 165
-    next_state: "UP"
-    feedback: "Squeeze glutes at the top"
-    
-  - name: "UP"
-    condition:
-      angle: "hip_angle"
-      operator: "<"
-      value: 120
-    next_state: "DOWN"
-    feedback: "Lower with control"
+  down:
+    condition: "angle < 120"
+    description: "Kalça yerde"
+  
+  lift:
+    condition: "angle >= 120 and angle < 165"
+    description: "Kaldırma aşaması"
+  
+  up:
+    condition: "angle >= 165"
+    description: "Tam uzanım"
 
-# Counter
 counter:
-  increment_on: "UP"
-  decrement_on: null
+  trigger_state: up
+  from_state: lift
 
-# Form feedback
+min_rep_duration: 0.8
+
 feedback:
-  - name: "incomplete_extension"
-    description: "Not fully extending hips"
-    angle: "hip_angle"
-    condition:
-      operator: "<"
-      value: 160
-    state_trigger: "UP"
-    message: "Extend hips fully - squeeze glutes"
-    priority: 1
-    
-  - name: "knees_caving"
-    description: "Knees falling inward"
-    condition:
-      type: "knee_alignment"
-      threshold: 0.05
-    message: "Keep knees in line with toes"
-    priority: 2
-    
-  - name: "overextension"
-    description: "Hyperextending the back"
-    angle: "hip_angle"
-    condition:
-      operator: ">"
-      value: 180
-    message: "Don't overextend - keep core tight"
-    priority: 1
+  incomplete:
+    condition: "angle < 160"
+    message: "Squeeze glutes - extend fully"
+    severity: info
 
-# Tempo
-tempo:
-  up_seconds: 1.5
-  down_seconds: 2.0
-  hold_seconds: 2.0
-
-# Visualization
 visualization:
-  primary_angle: "hip_angle"
-  show_angles: ["hip_angle", "knee_angle"]
-  highlight_landmarks: [23, 24, 25, 26]
-  color_scheme: "pink"
+  lines:
+    - points: [left_shoulder, left_hip]
+      color: [255, 105, 180]
+      thickness: 4
+    - points: [left_hip, left_knee]
+      color: [255, 105, 180]
+      thickness: 4

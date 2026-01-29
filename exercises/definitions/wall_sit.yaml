@@ -1,97 +1,57 @@
-# Wall Sit (Isometric)
-name: "Wall Sit"
-type: "duration"
+# Wall Sit Exercise Definition
+name: wall_sit
+display_name: "Wall Sit"
+type: duration
+
+target_muscles:
+  - Quadriceps
+  - Glutes
+equipment: "Wall"
+difficulty: beginner
+default_reps: 30
+default_sets: 3
 description: "Isometric hold against wall for quad endurance"
 
-# Angle definitions
 angles:
-  knee_angle:
-    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
-    range: [80, 100]  # Should be around 90 degrees
-  hip_angle:
-    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
-    range: [80, 100]  # Should be around 90 degrees
-  back_angle:
-    landmarks: [0, 11, 23]  # NOSE, LEFT_SHOULDER, LEFT_HIP
-    range: [160, 180]  # Back should be straight
+  primary:
+    points: [left_hip, left_knee, left_ankle]
+    description: "Diz açısı"
 
-# State machine for duration exercise
+state_order:
+  - holding
+  - lowering
+  - standing
+
 states:
-  - name: "STANDING"
-    condition:
-      angle: "knee_angle"
-      operator: ">"
-      value: 150
-    next_state: "LOWERING"
-    feedback: "Lower into wall sit position"
-    
-  - name: "LOWERING"
-    condition:
-      angle: "knee_angle"
-      operator: "<"
-      value: 100
-    next_state: "HOLDING"
-    feedback: "Hold this position!"
-    
-  - name: "HOLDING"
-    condition:
-      angle: "knee_angle"
-      operator: ">"
-      value: 120
-    next_state: "STANDING"
-    feedback: "Position broken - reset"
+  standing:
+    condition: "angle > 150"
+    description: "Ayakta"
+  
+  lowering:
+    condition: "angle > 100 and angle <= 150"
+    description: "İniş"
+  
+  holding:
+    condition: "angle <= 100"
+    description: "Tutma pozisyonu"
 
-# Duration settings
-duration:
-  target_seconds: 30
-  count_state: "HOLDING"  # Only count time in this state
-  increment: 1  # Count seconds
-
-# Counter (for duration exercises, counts seconds)
 counter:
-  increment_on: "HOLDING"  # Increment while in holding state
-  count_type: "duration"  # Count time, not reps
-  decrement_on: null
+  trigger_state: holding
+  from_state: lowering
 
-# Form feedback
+min_rep_duration: 1.0
+
 feedback:
-  - name: "knees_too_forward"
-    description: "Knees going past toes"
-    condition:
-      type: "landmark_alignment"
-      landmarks: [25, 27]  # Knee and ankle
-      axis: "x"
-      threshold: 0.05
-    message: "Keep knees behind toes"
-    priority: 1
-    
-  - name: "too_high"
-    description: "Not sitting low enough"
-    angle: "knee_angle"
-    condition:
-      operator: ">"
-      value: 100
-    state_trigger: "HOLDING"
-    message: "Lower down - aim for 90° knee bend"
-    priority: 1
-    
-  - name: "back_not_straight"
-    description: "Back leaning forward"
-    angle: "back_angle"
-    condition:
-      operator: "<"
-      value: 165
-    message: "Press back flat against wall"
-    priority: 2
+  too_high:
+    condition: "angle > 100"
+    message: "Lower down - aim for 90 degrees"
+    severity: warning
 
-# No tempo for isometric
-tempo:
-  hold_seconds: 30  # Target hold time
-
-# Visualization
 visualization:
-  primary_angle: "knee_angle"
-  show_angles: ["knee_angle", "hip_angle"]
-  highlight_landmarks: [23, 24, 25, 26]
-  color_scheme: "green"
-  show_timer: true
+  lines:
+    - points: [left_hip, left_knee]
+      color: [0, 128, 0]
+      thickness: 4
+    - points: [left_knee, left_ankle]
+      color: [0, 128, 0]
+      thickness: 4

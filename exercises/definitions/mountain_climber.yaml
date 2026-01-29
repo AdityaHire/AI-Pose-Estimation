@@ -1,89 +1,56 @@
-# Mountain Climber
-name: "Mountain Climber"
-type: "bilateral"
-description: "Dynamic cardio exercise alternating knee drives"
+# Mountain Climber Exercise Definition
+name: mountain_climber
+display_name: "Mountain Climber"
+type: repetition
+bilateral: true
 
-# Angle definitions
+target_muscles:
+  - Core
+  - Hip Flexors
+  - Shoulders
+equipment: "Bodyweight"
+difficulty: intermediate
+default_reps: 20
+default_sets: 3
+description: "Dynamic cardio with alternating knee drives"
+
 angles:
-  left_hip:
-    landmarks: [11, 23, 25]  # LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE
-    range: [60, 180]
-  right_hip:
-    landmarks: [12, 24, 26]  # RIGHT_SHOULDER, RIGHT_HIP, RIGHT_KNEE
-    range: [60, 180]
-  left_knee:
-    landmarks: [23, 25, 27]  # LEFT_HIP, LEFT_KNEE, LEFT_ANKLE
-    range: [40, 180]
-  right_knee:
-    landmarks: [24, 26, 28]  # RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE
-    range: [40, 180]
+  primary:
+    points: [left_shoulder, left_hip, left_knee]
+    description: "Kalça açısı"
 
-# State machine - tracks left leg
+state_order:
+  - tucked
+  - driving
+  - extended
+
 states:
-  - name: "EXTENDED"
-    condition:
-      angle: "left_hip"
-      operator: ">"
-      value: 160
-    next_state: "DRIVING"
-    feedback: "Drive knee toward chest"
-    
-  - name: "DRIVING"
-    condition:
-      angle: "left_hip"
-      operator: "<"
-      value: 90
-    next_state: "TUCKED"
-    feedback: "Knee in, switch legs"
-    
-  - name: "TUCKED"
-    condition:
-      angle: "left_hip"
-      operator: ">"
-      value: 160
-    next_state: "EXTENDED"
-    feedback: "Good! Keep moving"
+  extended:
+    condition: "angle > 160"
+    description: "Bacak düz"
+  
+  driving:
+    condition: "angle > 90 and angle <= 160"
+    description: "Diz ileri"
+  
+  tucked:
+    condition: "angle <= 90"
+    description: "Diz göğüse"
 
-# Counter - each tuck counts
 counter:
-  increment_on: "TUCKED"
-  decrement_on: null
+  trigger_state: tucked
+  from_state: driving
 
-# Bilateral settings
-bilateral:
-  sides: ["left", "right"]
-  angle_prefix: ["left_", "right_"]
-  count_per_side: true
+min_rep_duration: 0.2
 
-# Form feedback
 feedback:
-  - name: "hips_high"
-    description: "Hips piking up"
-    angle: "left_hip"
-    condition:
-      type: "plank_check"
-      threshold: 0.1
-    message: "Keep hips level with shoulders"
-    priority: 1
-    
-  - name: "slow_pace"
-    description: "Moving too slowly"
-    condition:
-      type: "tempo_check"
-      expected_rate: 40  # per minute
-      threshold: 0.5
-    message: "Pick up the pace!"
-    priority: 2
+  hips_high:
+    condition: "angle < 70"
+    message: "Keep hips level"
+    severity: info
 
-# Tempo (faster for cardio)
-tempo:
-  up_seconds: 0.3
-  down_seconds: 0.3
-  hold_seconds: 0
-
-# Visualization
 visualization:
-  primary_angle: "left_hip"
-  show_angles: ["left_hip", "right_hip", "left_knee", "right_knee"]
-  highlight_landmarks: [23, 24, 25, 26]
-  color_scheme: "red"
+  lines:
+    - points: [left_hip, left_knee]
+      color: [255, 0, 0]
+      thickness: 4

@@ -3,10 +3,29 @@ import mediapipe as mp
 from exercises.hammer_curl import HammerCurl
 
 class PoseEstimator:
-    def __init__(self):
+    def __init__(self, static_mode=False, model_complexity=1):
+        """
+        Initialize PoseEstimator
+        
+        Args:
+            static_mode: True for image/video analysis (less memory), False for real-time
+            model_complexity: 0=Lite, 1=Full, 2=Heavy (0 uses least memory)
+        """
         self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose()
+        self.pose = self.mp_pose.Pose(
+            static_image_mode=static_mode,
+            model_complexity=model_complexity,
+            enable_segmentation=False,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
         self.mp_drawing = mp.solutions.drawing_utils
+    
+    def close(self):
+        """Release resources"""
+        if self.pose:
+            self.pose.close()
+            self.pose = None
 
     def estimate_pose(self, frame, exercise_type):
         # BGR to RGB

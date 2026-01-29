@@ -32,6 +32,29 @@ header p {
     color: #666;
 }
 
+/* Navigation Links */
+.nav-links {
+    margin-top: 15px;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.nav-link {
+    color: #3498db;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    background-color: #e8f4fc;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    background-color: #3498db;
+    color: white;
+}
+
 .main-content {
     display: flex;
     flex-wrap: wrap;
@@ -43,12 +66,50 @@ header p {
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    min-height: 400px;
+    position: relative;
 }
 
 .video-container img {
     width: 100%;
     height: auto;
     display: block;
+}
+
+/* Video Placeholder for lazy camera loading */
+.video-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+}
+
+.placeholder-content {
+    text-align: center;
+    color: white;
+}
+
+.placeholder-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+.placeholder-content p {
+    font-size: 1.1rem;
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.placeholder-content .btn {
+    padding: 12px 30px;
+    font-size: 1rem;
 }
 
 .controls {

@@ -12,11 +12,22 @@
         <header>
             <h1>🏋️ Fitness Trainer</h1>
             <p>AI-powered exercise tracking and feedback</p>
+            <nav class="nav-links">
+                <a href="/video_analysis" class="nav-link">🎬 Video Analysis</a>
+                <a href="/dashboard" class="nav-link">📊 Dashboard</a>
+            </nav>
         </header>
         
         <div class="main-content">
             <div class="video-container">
-                <img id="video" src="{{ url_for('video_feed') }}" alt="Fitness Tracker Video Feed">
+                <div id="video-placeholder" class="video-placeholder">
+                    <div class="placeholder-content">
+                        <div class="placeholder-icon">📹</div>
+                        <p>Click to start camera</p>
+                        <button id="start-camera-btn" class="btn primary-btn">Start Camera</button>
+                    </div>
+                </div>
+                <img id="video" src="" alt="Fitness Tracker Video Feed" style="display: none;">
             </div>
             
             <div class="controls">

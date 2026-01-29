@@ -1,3 +1,11 @@
+# CRITICAL: Set environment variables BEFORE any TensorFlow/MediaPipe imports
+import os
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress TF warnings
+
 from flask import Flask, render_template, Response, request, jsonify, session, redirect, url_for
 import cv2
 import threading
@@ -5,6 +13,8 @@ import time
 import sys
 import traceback
 import logging
+import uuid
+import numpy as np
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, 
@@ -70,6 +80,15 @@ fps_counter = 0
 fps_start_time = time.time()
 current_fps = 0
 
+# Video analysis storage
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+video_analyses = {}  # Store ongoing video analyses
+
+# Video upload limits
+MAX_VIDEO_SIZE_MB = 50  # Max 50MB video
+MAX_VIDEO_DURATION_SEC = 120  # Max 2 minutes
+
 def initialize_camera():
     global camera
     if camera is None:
@@ -86,12 +105,25 @@ def release_camera():
         camera.release()
         camera = None
 
+# Global pose estimator - ONLY ONE instance, created lazily when needed
+_pose_estimator = None
+_pose_estimator_lock = threading.Lock()
+
+def get_pose_estimator():
+    """Get or create the single PoseEstimator instance"""
+    global _pose_estimator
+    with _pose_estimator_lock:
+        if _pose_estimator is None:
+            _pose_estimator = PoseEstimator()
+        return _pose_estimator
+
 def generate_frames():
     global output_frame, lock, exercise_running, exercise_engine
     global exercise_goal, sets_completed, sets_goal
     global fps_counter, fps_start_time, current_fps
 
-    pose_estimator = PoseEstimator()
+    # NO PoseEstimator here - only create when exercise starts
+    pose_estimator = None
 
     # Initialize camera when video feed starts
     initialize_camera()
@@ -116,6 +148,10 @@ def generate_frames():
         
         # Only process frames if an exercise is running
         if exercise_running and exercise_engine.exercise:
+            # Lazy load pose estimator only when needed
+            if pose_estimator is None:
+                pose_estimator = get_pose_estimator()
+            
             # Process with pose estimation
             results = pose_estimator.estimate_pose(frame, exercise_engine.exercise_name)
             
@@ -224,6 +260,15 @@ def video_feed():
     return Response(generate_frames(),
                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/stop_camera', methods=['POST'])
+def stop_camera():
+    """Stop and release camera"""
+    global exercise_running
+    exercise_running = False
+    release_camera()
+    logger.info("Camera stopped and released")
+    return jsonify({'success': True})
+
 @app.route('/start_exercise', methods=['POST'])
 def start_exercise():
     """Start a new exercise based on user selection"""
@@ -327,8 +372,369 @@ def list_exercises():
 
 @app.route('/profile')
 def profile():
-    """User profile page - placeholder for future development"""
-    return "Profile page - Coming soon!"
+    """User profile page"""
+    # Default user data (would come from database in production)
+    user = {
+        'name': '',
+        'initials': 'FT',
+        'title': 'Amateur Athlete',
+        'joined': 'January 2026',
+        'age': None,
+        'gender': None,
+        'height': None,
+        'weight': None
+    }
+    
+    # Calculate stats from workout logger
+    stats = {
+        'total_workouts': 0,
+        'total_reps': 0,
+        'total_minutes': 0,
+        'streak': 0,
+        'weekly_workouts': 0,
+        'today_reps': 0,
+        'avg_form_score': 85
+    }
+    
+    # Try to get stats from workout logger
+    try:
+        workout_stats = workout_logger.get_dashboard_stats()
+        stats['total_workouts'] = workout_stats.get('total_workouts', 0)
+        stats['streak'] = workout_stats.get('streak_days', 0)
+        stats['weekly_workouts'] = workout_stats.get('weekly_workouts', 0)
+        
+        # Get total reps from recent workouts
+        recent = workout_logger.get_recent_workouts(100)
+        stats['total_reps'] = sum(w.get('reps', 0) for w in recent)
+        stats['total_minutes'] = sum(w.get('duration', 0) for w in recent)
+    except Exception as e:
+        logger.warning(f"Could not load workout stats: {e}")
+    
+    # Get favorite exercises
+    favorites = []
+    try:
+        exercise_stats = workout_logger.get_exercise_stats()
+        favorites = [
+            {'name': ex['exercise'].replace('_', ' ').title(), 'count': ex['count']}
+            for ex in exercise_stats[:5]
+        ]
+    except Exception as e:
+        logger.warning(f"Could not load favorites: {e}")
+    
+    # Settings defaults
+    settings = {
+        'notifications': True,
+        'dark_mode': False,
+        'sounds': True,
+        'units': 'metric'
+    }
+    
+    # Calculate progress percentages for goals
+    stats['weekly_progress'] = min(100, int((stats['weekly_workouts'] / 5) * 100))
+    stats['reps_progress'] = min(100, int((stats['today_reps'] / 50) * 100))
+    stats['form_progress'] = min(100, stats['avg_form_score'])
+    
+    return render_template('profile.html', 
+                          user=user, 
+                          stats=stats, 
+                          favorites=favorites,
+                          settings=settings)
+
+@app.route('/api/profile/update', methods=['POST'])
+def update_profile():
+    """Update user profile - API endpoint"""
+    try:
+        data = request.get_json()
+        # In a real app, this would save to a database
+        # For now, we just acknowledge the update
+        return jsonify({'success': True, 'message': 'Profile updated'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============================================
+# VIDEO ANALYSIS ROUTES
+# ============================================
+
+@app.route('/video_analysis')
+def video_analysis():
+    """Video analysis page"""
+    return render_template('video_analysis.html')
+
+@app.route('/api/video/upload', methods=['POST'])
+def upload_video():
+    """Upload video for analysis"""
+    if 'video' not in request.files:
+        return jsonify({'success': False, 'error': 'No video file provided'})
+    
+    video_file = request.files['video']
+    exercise_type = request.form.get('exercise_type')
+    
+    if not exercise_type:
+        return jsonify({'success': False, 'error': 'No exercise type specified'})
+    
+    if video_file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    # Check file size (in memory before saving)
+    video_file.seek(0, 2)  # Seek to end
+    file_size = video_file.tell()
+    video_file.seek(0)  # Seek back to start
+    
+    max_size_bytes = MAX_VIDEO_SIZE_MB * 1024 * 1024
+    if file_size > max_size_bytes:
+        return jsonify({
+            'success': False, 
+            'error': f'Video çok büyük! Max {MAX_VIDEO_SIZE_MB}MB, yüklenen: {file_size / (1024*1024):.1f}MB'
+        })
+    
+    # Generate unique ID
+    video_id = str(uuid.uuid4())
+    
+    # Save video
+    filename = f"{video_id}_{video_file.filename}"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    video_file.save(filepath)
+    
+    # Check video duration
+    cap = cv2.VideoCapture(filepath)
+    if cap.isOpened():
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        duration = frame_count / fps
+        cap.release()
+        
+        if duration > MAX_VIDEO_DURATION_SEC:
+            os.remove(filepath)  # Delete the uploaded file
+            return jsonify({
+                'success': False,
+                'error': f'Video çok uzun! Max {MAX_VIDEO_DURATION_SEC} saniye, yüklenen: {duration:.0f} saniye'
+            })
+    
+    # Initialize analysis state
+    video_analyses[video_id] = {
+        'status': 'processing',
+        'progress': 0,
+        'filepath': filepath,
+        'exercise_type': exercise_type,
+        'reps': 0,
+        'form_score': 100,
+        'avg_form_score': 100,
+        'grade': 'A',
+        'state': 'READY',
+        'feedback': '',
+        'engine': ExerciseEngine(),
+        'total_frames': 0,
+        'processed_frames': 0
+    }
+    
+    # Load exercise into engine (not used in subprocess mode, but keep for status)
+    video_analyses[video_id]['engine'].set_exercise(exercise_type)
+    
+    # Start background processing using subprocess
+    thread = threading.Thread(target=process_video_subprocess, args=(video_id,))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'video_id': video_id,
+        'message': 'Video uploaded, processing started'
+    })
+
+def process_video_subprocess(video_id):
+    """Process video in a separate subprocess to avoid memory issues"""
+    import subprocess
+    import json
+    
+    logger.info(f"Starting video processing (subprocess) for {video_id}")
+    
+    analysis = video_analyses.get(video_id)
+    if not analysis:
+        logger.error(f"Analysis not found for {video_id}")
+        return
+    
+    analysis['status'] = 'processing'
+    
+    # Output paths
+    output_json_path = os.path.join(UPLOAD_FOLDER, f"{video_id}_results.json")
+    output_video_path = os.path.join(UPLOAD_FOLDER, f"{video_id}_processed.mp4")
+    
+    try:
+        # Run video processor in subprocess WITH output video
+        cmd = [
+            sys.executable,  # Use same Python interpreter
+            'video_processor.py',
+            analysis['filepath'],
+            analysis['exercise_type'],
+            output_json_path,
+            output_video_path  # NEW: Output video with skeleton overlay
+        ]
+        
+        logger.info(f"Running subprocess: {' '.join(cmd)}")
+        
+        # Start subprocess - capture output for debugging
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Combine stderr with stdout
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            text=True,
+            bufsize=1
+        )
+        
+        # Monitor progress by reading output JSON periodically
+        while process.poll() is None:
+            # Read any available output
+            try:
+                line = process.stdout.readline()
+                if line:
+                    logger.info(f"[Subprocess] {line.strip()}")
+            except:
+                pass
+            
+            time.sleep(0.3)
+            try:
+                if os.path.exists(output_json_path):
+                    with open(output_json_path, 'r') as f:
+                        results = json.load(f)
+                    analysis['progress'] = results.get('progress', 0)
+                    analysis['reps'] = results.get('reps', 0)
+                    analysis['form_score'] = results.get('form_score', 100)
+                    analysis['avg_form_score'] = results.get('avg_form_score', 100)
+                    analysis['grade'] = results.get('grade', 'A')
+                    analysis['state'] = results.get('state', 'UNKNOWN')
+                    analysis['feedback'] = results.get('feedback', '')
+            except:
+                pass
+        
+        # Process finished - read final results
+        stdout, stderr = process.communicate()
+        
+        if process.returncode == 0 and os.path.exists(output_json_path):
+            with open(output_json_path, 'r') as f:
+                results = json.load(f)
+            
+            analysis['status'] = results.get('status', 'completed')
+            analysis['progress'] = 100
+            analysis['reps'] = results.get('reps', 0)
+            analysis['form_score'] = results.get('form_score', 100)
+            analysis['avg_form_score'] = results.get('avg_form_score', 100)
+            analysis['grade'] = results.get('grade', 'A')
+            analysis['state'] = results.get('state', 'COMPLETED')
+            analysis['feedback'] = results.get('feedback', '')
+            
+            # Get actual output video path from results (extension may have changed)
+            actual_output_video = results.get('output_video', output_video_path)
+            if actual_output_video and os.path.exists(actual_output_video):
+                analysis['processed_video'] = actual_output_video
+            elif os.path.exists(output_video_path):
+                analysis['processed_video'] = output_video_path
+            else:
+                # Try .avi extension as fallback
+                avi_path = output_video_path.rsplit('.', 1)[0] + '.avi'
+                if os.path.exists(avi_path):
+                    analysis['processed_video'] = avi_path
+                else:
+                    analysis['processed_video'] = None
+            
+            if results.get('error'):
+                analysis['status'] = 'error'
+                analysis['error'] = results['error']
+            
+            logger.info(f"Video processing completed: {analysis['reps']} reps, output: {output_video_path}")
+        else:
+            analysis['status'] = 'error'
+            analysis['error'] = f"Subprocess failed: {stderr.decode()}"
+            logger.error(f"Subprocess error: {stderr.decode()}")
+        
+        # Cleanup JSON file (keep processed video for download)
+        try:
+            if os.path.exists(output_json_path):
+                os.remove(output_json_path)
+            # Delete original video (keep processed one)
+            if os.path.exists(analysis['filepath']):
+                os.remove(analysis['filepath'])
+        except Exception as e:
+            logger.warning(f"Cleanup error: {e}")
+            
+    except Exception as e:
+        logger.error(f"Subprocess error: {e}")
+        analysis['status'] = 'error'
+        analysis['error'] = str(e)
+
+@app.route('/api/video/processed/<video_id>', methods=['GET'])
+def get_processed_video(video_id):
+    """Serve the processed video with skeleton overlay"""
+    from flask import send_file
+    
+    analysis = video_analyses.get(video_id)
+    
+    if not analysis:
+        return jsonify({'error': 'Video ID not found'}), 404
+    
+    processed_video = analysis.get('processed_video')
+    if not processed_video or not os.path.exists(processed_video):
+        return jsonify({'error': 'Processed video not ready'}), 404
+    
+    # Determine MIME type based on extension
+    if processed_video.endswith('.avi'):
+        mimetype = 'video/x-msvideo'
+    elif processed_video.endswith('.webm'):
+        mimetype = 'video/webm'
+    else:
+        mimetype = 'video/mp4'
+    
+    return send_file(processed_video, mimetype=mimetype, as_attachment=False)
+
+@app.route('/api/video/status/<video_id>', methods=['GET'])
+def get_video_status(video_id):
+    """Get video analysis status"""
+    analysis = video_analyses.get(video_id)
+    
+    if not analysis:
+        return jsonify({'status': 'not_found', 'error': 'Video ID not found'})
+    
+    # Check if processed video is ready
+    has_processed_video = False
+    if analysis.get('processed_video') and os.path.exists(analysis.get('processed_video', '')):
+        has_processed_video = True
+    
+    return jsonify({
+        'status': analysis['status'],
+        'progress': analysis['progress'],
+        'reps': analysis['reps'],
+        'form_score': analysis['form_score'],
+        'avg_form_score': analysis['avg_form_score'],
+        'grade': analysis['grade'],
+        'state': analysis['state'],
+        'feedback': analysis['feedback'],
+        'has_processed_video': has_processed_video,
+        'processed_video_url': f'/api/video/processed/{video_id}' if has_processed_video else None
+    })
+
+@app.route('/api/video/analyze_frame', methods=['POST'])
+def analyze_video_frame():
+    """Analyze a single frame from video (real-time overlay)"""
+    if 'frame' not in request.files:
+        return jsonify({'success': False, 'error': 'No frame provided'})
+    
+    video_id = request.form.get('video_id')
+    analysis = video_analyses.get(video_id)
+    
+    if not analysis:
+        return jsonify({'success': False, 'error': 'Video ID not found'})
+    
+    # DISABLED: This endpoint creates new PoseEstimator which causes memory issues
+    # Video analysis is handled by subprocess instead
+    return jsonify({
+        'success': False, 
+        'error': 'Real-time frame analysis disabled. Use subprocess-based video analysis instead.',
+        'reps': analysis.get('reps', 0) if analysis else 0,
+        'form_score': analysis.get('form_score', 100) if analysis else 100,
+        'grade': analysis.get('grade', 'A') if analysis else 'A',
+        'state': analysis.get('state', 'PROCESSING') if analysis else 'PROCESSING',
+        'feedback': analysis.get('feedback', '') if analysis else ''
+    })
 
 if __name__ == '__main__':
     try:
@@ -346,7 +752,7 @@ if __name__ == '__main__':
         print("-" * 50)
         print("🌐 Open http://127.0.0.1:5000 in your browser")
         print("=" * 50)
-        app.run(debug=True)
+        app.run(debug=False, threaded=False, use_reloader=False)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
         traceback.print_exc()

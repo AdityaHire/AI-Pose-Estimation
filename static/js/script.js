@@ -18,12 +18,63 @@ document.addEventListener('DOMContentLoaded', function() {
     const formScore = document.getElementById('form-score');
     const formGrade = document.getElementById('form-grade');
     
+    // Camera elements
+    const videoElement = document.getElementById('video');
+    const videoPlaceholder = document.getElementById('video-placeholder');
+    const startCameraBtn = document.getElementById('start-camera-btn');
+    
+    // Camera state
+    let cameraStarted = false;
+    
     // Variables
     let selectedExercise = null;
     let exercisesData = {};
     let workoutRunning = false;
     let statusCheckInterval = null;
     let currentCategory = 'all';
+    
+    // ==================== Camera Control Functions ====================
+    function startCamera() {
+        if (cameraStarted) return;
+        
+        console.log('Starting camera...');
+        videoElement.src = '/video_feed';
+        videoElement.style.display = 'block';
+        if (videoPlaceholder) {
+            videoPlaceholder.style.display = 'none';
+        }
+        cameraStarted = true;
+    }
+    
+    function stopCamera() {
+        if (!cameraStarted) return;
+        
+        console.log('Stopping camera...');
+        videoElement.src = '';
+        videoElement.style.display = 'none';
+        if (videoPlaceholder) {
+            videoPlaceholder.style.display = 'flex';
+        }
+        cameraStarted = false;
+        
+        // Notify server to release camera
+        fetch('/stop_camera', { method: 'POST' }).catch(() => {});
+    }
+    
+    // Start camera button click
+    if (startCameraBtn) {
+        startCameraBtn.addEventListener('click', startCamera);
+    }
+    
+    // Stop camera when leaving page
+    window.addEventListener('beforeunload', stopCamera);
+    
+    // Also stop camera when clicking navigation links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            stopCamera();
+        });
+    });
     
     // Exercise categories mapping
     const exerciseCategories = {
@@ -165,6 +216,9 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please enter valid numbers for sets and repetitions.');
             return;
         }
+        
+        // Start camera first if not started
+        startCamera();
         
         // Start the exercise via API
         fetch('/start_exercise', {

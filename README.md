@@ -5,19 +5,44 @@ An AI-powered web application that tracks your exercises using computer vision a
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-Pose-orange.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
 
 ## ✨ Features
 
+### 🎥 Real-time Exercise Tracking
 - 📷 **Real-time Pose Estimation** using MediaPipe
 - 🎯 **18 Built-in Exercises** - Full body workout coverage
 - 📊 **Form Score System** (0-100) with A-F grading
-- ⚙️ **YAML-based Exercise Definitions** - Add new exercises without writing code!
 - 🔄 **Automatic Rep Counting** with state machine logic
 - 💬 **Real-time Form Feedback** - Instant correction tips
-- 📈 **FPS Tracking** for performance monitoring
-- 🌐 **Web Interface** - Works in any modern browser
+
+### 📹 Video Analysis Mode
+- 🎬 **Upload & Analyze Videos** - Process pre-recorded workout videos
+- 🦴 **Skeleton Overlay** - See your pose detection on processed video
+- 📈 **Live Statistics Panel** - Real-time rep count, form score, and state
+- 🖥️ **Processing Terminal** - Watch analysis progress with detailed logs
+- 💾 **H.264 Video Output** - Browser-compatible processed videos with imageio-ffmpeg
+
+### 👤 User Profile System
+- 📋 **Personal Information** - Track your fitness journey
+- 🎯 **Customizable Goals** - Set weekly workout and rep targets
+- 🏅 **Achievement System** - Unlock badges for milestones
+- 📊 **Activity Charts** - Visualize your workout history
+- ❤️ **Favorite Exercises** - Track your most-used exercises
+- ⚙️ **Settings** - Dark mode, notifications, units preference
+
+### 📊 Dashboard
+- 📈 **Workout Statistics** - Total workouts, reps, streaks
+- 📉 **Weekly Activity Charts** - Visualize your progress
+- 🥧 **Exercise Distribution** - See which exercises you do most
+- 📋 **Recent Workouts** - Quick view of latest sessions
+
+### ⚙️ Extensible Architecture
+- 📝 **YAML-based Exercise Definitions** - Add new exercises without writing code!
+- 🔀 **Three Exercise Types** - Standard, Bilateral (left/right), Duration-based
+- 🎨 **Customizable Visualization** - Colors, highlighted joints per exercise
 
 ---
 
@@ -256,8 +281,8 @@ Restart the app - your exercise is now available!
 ```
 fitness-trainer-pose-estimation/
 ├── 📄 app.py                    # Flask application + video streaming
+├── 📄 video_processor.py        # Standalone video analysis with skeleton overlay
 ├── 📄 main.py                   # CLI runner (standalone)
-├── 📄 test_engine.py            # Unit tests
 ├── 📄 requirements.txt
 │
 ├── 📁 exercises/
@@ -293,13 +318,26 @@ fitness-trainer-pose-estimation/
 │   ├── 📄 information.py        # Exercise metadata
 │   └── 📄 layout.py
 │
+├── 📁 db/
+│   └── 📄 workout_logger.py     # Workout history logging
+│
 ├── 📁 templates/
-│   ├── 📄 index.html            # Main exercise page
-│   └── 📄 dashboard.html        # Stats dashboard
+│   ├── 📄 index.html            # Home - Real-time exercise tracking
+│   ├── 📄 video_analysis.html   # Video upload & analysis page
+│   ├── 📄 dashboard.html        # Stats dashboard
+│   └── 📄 profile.html          # User profile & settings
 │
 └── 📁 static/
     ├── 📁 css/
+    │   ├── 📄 style.css         # Global styles
+    │   ├── 📄 dashboard.css     # Dashboard page styles
+    │   ├── 📄 profile.css       # Profile page styles
+    │   └── 📄 video_analysis.css # Video analysis styles
     ├── 📁 js/
+    │   ├── 📄 script.js         # Main page JavaScript
+    │   ├── 📄 dashboard.js      # Dashboard functionality
+    │   ├── 📄 profile.js        # Profile page functionality
+    │   └── 📄 video_analysis.js # Video analysis functionality
     └── 📁 images/
 ```
 
@@ -309,13 +347,32 @@ fitness-trainer-pose-estimation/
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Main page |
+| `/` | GET | Home page - Real-time exercise tracking |
+| `/video_analysis` | GET | Video upload & analysis page |
+| `/dashboard` | GET | Workout statistics dashboard |
+| `/profile` | GET | User profile & settings |
 | `/video_feed` | GET | MJPEG video stream |
 | `/start_exercise` | POST | Start tracking an exercise |
 | `/stop_exercise` | POST | Stop current exercise |
 | `/get_status` | GET | Get current rep count & form score |
 | `/exercises` | GET | List all available exercises |
-| `/dashboard` | GET | View workout history |
+| `/api/video/upload` | POST | Upload video for analysis |
+| `/api/video/status/<id>` | GET | Get video analysis status |
+| `/api/video/processed/<id>` | GET | Download processed video |
+| `/api/profile/update` | POST | Update user profile |
+
+---
+
+## 🖼️ Screenshots
+
+### Home - Real-time Tracking
+Real-time pose estimation with skeleton overlay and form feedback.
+
+### Video Analysis
+Upload videos, analyze with skeleton overlay, and download processed results.
+
+### Profile
+Personal stats, achievements, goals tracking, and customizable settings.
 
 ---
 
@@ -324,8 +381,10 @@ fitness-trainer-pose-estimation/
 - **Flask** - Web framework
 - **OpenCV** - Computer vision & video processing
 - **MediaPipe** - Google's pose estimation model
+- **imageio-ffmpeg** - H.264 video encoding for browser compatibility
 - **PyYAML** - Exercise definition parsing
-- **HTML/CSS/JS** - Frontend
+- **Chart.js** - Interactive charts for dashboard
+- **HTML/CSS/JS** - Modern responsive frontend
 
 ---
 

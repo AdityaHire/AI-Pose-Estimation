@@ -1,6 +1,5 @@
 import cv2
 import mediapipe as mp
-from exercises.hammer_curl import HammerCurl
 
 class PoseEstimator:
     def __init__(self, static_mode=False, model_complexity=1):

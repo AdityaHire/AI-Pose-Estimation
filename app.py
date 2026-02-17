@@ -92,11 +92,22 @@ MAX_VIDEO_DURATION_SEC = 120  # Max 2 minutes
 def initialize_camera():
     global camera
     if camera is None:
+        logger.info("Initializing camera...")
         camera = cv2.VideoCapture(0)
+        
+        # Check if camera opened successfully
+        if not camera.isOpened():
+            logger.error("Failed to open camera")
+            camera = None
+            return None
+            
         # Optimize camera settings
         camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         camera.set(cv2.CAP_PROP_FPS, 30)
+        camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer lag
+        
+        logger.info("Camera initialized successfully")
     return camera
 
 def release_camera():
@@ -130,12 +141,15 @@ def generate_frames():
 
     while True:
         if camera is None:
+            logger.warning("Camera not initialized, attempting to initialize...")
             initialize_camera()
             time.sleep(0.1)
             continue
             
         success, frame = camera.read()
         if not success:
+            logger.warning("Failed to read frame from camera")
+            time.sleep(0.01)
             continue
         
         # FPS calculation
@@ -199,14 +213,22 @@ def generate_frames():
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
                 
         # Encode the frame in JPEG format
-        with lock:
-            output_frame = frame.copy()
-            
-        # Yield the frame in byte format
-        ret, buffer = cv2.imencode('.jpg', output_frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        try:
+            with lock:
+                output_frame = frame.copy()
+                
+            # Yield the frame in byte format
+            ret, buffer = cv2.imencode('.jpg', output_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not ret:
+                logger.warning("Failed to encode frame")
+                continue
+                
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        except Exception as e:
+            logger.error(f"Error encoding/yielding frame: {e}")
+            continue
 
 @app.route('/')
 def index():
@@ -257,8 +279,12 @@ def dashboard():
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route"""
+    logger.info("Video feed requested")
     return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+                   mimetype='multipart/x-mixed-replace; boundary=frame',
+                   headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
+                           'Pragma': 'no-cache',
+                           'Expires': '0'})
 
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
@@ -752,7 +778,7 @@ if __name__ == '__main__':
         print("-" * 50)
         print("🌐 Open http://127.0.0.1:5000 in your browser")
         print("=" * 50)
-        app.run(debug=False, threaded=False, use_reloader=False)
+        app.run(debug=False, threaded=True, use_reloader=False)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
         traceback.print_exc()

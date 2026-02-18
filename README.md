@@ -10,7 +10,6 @@ An AI-powered fitness trainer that tracks your exercise form in real-time using 
 - Workout history tracking
 - Video analysis support
 
-
 ## How It Works
 
 - Uses MediaPipe for pose detection

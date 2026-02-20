@@ -3,149 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fitness Tracker Dashboard</title>
+    <title>Dashboard — FitVerse</title>
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/logo.jpeg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Fitness Tracker Dashboard</h1>
-            <p>Track your workout progress</p>
-            <nav class="main-nav">
-                <ul>
-                    <li><a href="/" class="nav-link">Home</a></li>
-                    <li><a href="/dashboard" class="nav-link active">Dashboard</a></li>
-                    <li><a href="/profile" class="nav-link">Profile</a></li>
-                </ul>
-            </nav>
-        </header>
-        
-        <div class="dashboard-content">
-            <div class="stats-summary">
-                <div class="stat-card">
-                    <h3>Total Workouts</h3>
-                    <p class="stat-value">{{ total_workouts }}</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Total Exercises</h3>
-                    <p class="stat-value">{{ total_exercises }}</p>
-                </div>
-                <div class="stat-card">
-                    <h3>This Week</h3>
-                    <p class="stat-value">{{ weekly_workouts }}</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Streak</h3>
-                    <p class="stat-value">{{ streak_days }} days</p>
-                </div>
+
+    <!-- ===== NAVBAR ===== -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/" class="navbar-brand" aria-label="FitVerse">
+                <img class="brand-logo" src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="FitVerse">
+            </a>
+            <div class="navbar-links">
+                <a href="/" class="nav-link">Live Camera</a>
+                <a href="/video_analysis" class="nav-link">Video Analysis</a>
+                <a href="/dashboard" class="nav-link active">Dashboard</a>
+                <a href="/profile" class="nav-link">Profile</a>
             </div>
-            
-            <div class="charts-container">
-                <div class="chart-card">
-                    <h3>Weekly Activity</h3>
-                    <canvas id="weeklyChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Exercise Distribution</h3>
-                    <canvas id="exerciseChart"></canvas>
-                </div>
-            </div>
-            
-            <div class="recent-workouts">
-                <h2>Recent Workouts</h2>
-                <table class="workout-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Exercise</th>
-                            <th>Sets</th>
-                            <th>Reps</th>
-                            <th>Duration</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for workout in recent_workouts %}
-                        <tr>
-                            <td>{{ workout.date }}</td>
-                            <td>{{ workout.exercise }}</td>
-                            <td>{{ workout.sets }}</td>
-                            <td>{{ workout.reps }}</td>
-                            <td>{{ workout.duration }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="navbar-mobile" id="navbar-mobile">
+            <a href="/" class="nav-link">Live Camera</a>
+            <a href="/video_analysis" class="nav-link">Video Analysis</a>
+            <a href="/dashboard" class="nav-link active">Dashboard</a>
+            <a href="/profile" class="nav-link">Profile</a>
+        </div>
+    </nav>
+
+    <!-- ===== PAGE CONTENT ===== -->
+    <div class="page-wrapper">
+        <!-- Page header band -->
+        <div class="page-header">
+            <div class="container">
+                <h1>📊 Dashboard</h1>
+                <p>Track your workout progress and performance trends</p>
             </div>
         </div>
-    </div>
-    
+
+        <div class="container">
+            <div class="dashboard-content">
+
+                <!-- ===== STATS GRID ===== -->
+                <div class="stats-summary">
+                    <div class="stat-card">
+                        <span class="stat-icon">🏋️</span>
+                        <span class="stat-value">{{ total_workouts }}</span>
+                        <h3>Total Workouts</h3>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">💪</span>
+                        <span class="stat-value">{{ total_exercises }}</span>
+                        <h3>Exercises Done</h3>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">📅</span>
+                        <span class="stat-value">{{ weekly_workouts }}</span>
+                        <h3>This Week</h3>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">🔥</span>
+                        <span class="stat-value">{{ streak_days }}</span>
+                        <h3>Day Streak</h3>
+                    </div>
+                </div>
+
+                <!-- ===== CHARTS ===== -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>📈 Weekly Activity</h3>
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>🥧 Exercise Distribution</h3>
+                        <canvas id="exerciseChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- ===== RECENT WORKOUTS TABLE ===== -->
+                <div class="recent-workouts">
+                    <div class="recent-workouts-header">
+                        <h2>🗂 Recent Workouts</h2>
+                        <button class="btn btn-outline" id="refresh-stats" style="min-height:36px;padding:0.375rem 0.875rem;font-size:0.875rem;">↻ Refresh</button>
+                    </div>
+                    {% if recent_workouts %}
+                    <table class="workout-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Exercise</th>
+                                <th>Sets</th>
+                                <th>Reps</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for workout in recent_workouts %}
+                            <tr>
+                                <td data-label="Date" class="date-cell">{{ workout.date }}</td>
+                                <td data-label="Exercise" class="exercise-cell">{{ workout.exercise }}</td>
+                                <td data-label="Sets">{{ workout.sets }}</td>
+                                <td data-label="Reps">{{ workout.reps }}</td>
+                                <td data-label="Duration">{{ workout.duration }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="table-empty">
+                        <span class="empty-icon">🏃</span>
+                        No workouts yet — start training to see your history here!
+                    </div>
+                    {% endif %}
+                </div>
+
+            </div><!-- /dashboard-content -->
+        </div><!-- /container -->
+    </div><!-- /page-wrapper -->
+
     <script>
-        // Sample data for charts - would be replaced with data from backend
+        // Hamburger menu
+        const hamburger = document.getElementById('nav-hamburger');
+        const mobileNav = document.getElementById('navbar-mobile');
+        if (hamburger && mobileNav) {
+            hamburger.addEventListener('click', () => mobileNav.classList.toggle('open'));
+        }
+
+        // Charts — initial data (replaced by dashboard.js with real data)
         const weeklyData = {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             datasets: [{
                 label: 'Workout Minutes',
                 data: [30, 45, 0, 60, 20, 0, 45],
-                backgroundColor: 'rgba(52, 152, 219, 0.5)',
-                borderColor: 'rgba(52, 152, 219, 1)',
-                borderWidth: 1
+                backgroundColor: 'rgba(34, 197, 94, 0.25)',
+                borderColor: 'rgba(22, 163, 74, 1)',
+                borderWidth: 2,
+                borderRadius: 6,
+                borderSkipped: false,
             }]
         };
-        
+
         const exerciseData = {
             labels: ['Squats', 'Push Ups', 'Hammer Curls'],
             datasets: [{
                 data: [40, 35, 25],
                 backgroundColor: [
-                    'rgba(52, 152, 219, 0.7)',
-                    'rgba(46, 204, 113, 0.7)',
-                    'rgba(155, 89, 182, 0.7)'
+                    'rgba(34, 197, 94, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(59, 130, 246, 0.8)'
                 ],
-                borderColor: [
-                    'rgba(52, 152, 219, 1)',
-                    'rgba(46, 204, 113, 1)',
-                    'rgba(155, 89, 182, 1)'
-                ],
-                borderWidth: 1
+                borderColor: ['#16a34a', '#059669', '#2563eb'],
+                borderWidth: 2,
+                hoverOffset: 6
             }]
         };
-        
-        // Initialize charts
+
+        const chartDefaults = {
+            font: { family: 'Inter, sans-serif' },
+            color: '#6b7280'
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
-            const weeklyChart = new Chart(
-                document.getElementById('weeklyChart'),
-                {
-                    type: 'bar',
-                    data: weeklyData,
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
+            Chart.defaults.font.family = 'Inter, sans-serif';
+            Chart.defaults.color = '#6b7280';
+
+            new Chart(document.getElementById('weeklyChart'), {
+                type: 'bar',
+                data: weeklyData,
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false }, tooltip: { boxPadding: 4 } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
                     }
                 }
-            );
-            
-            const exerciseChart = new Chart(
-                document.getElementById('exerciseChart'),
-                {
-                    type: 'doughnut',
-                    data: exerciseData,
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                            }
-                        }
+            });
+
+            new Chart(document.getElementById('exerciseChart'), {
+                type: 'doughnut',
+                data: exerciseData,
+                options: {
+                    responsive: true,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 }, usePointStyle: true } }
                     }
                 }
-            );
+            });
         });
     </script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
